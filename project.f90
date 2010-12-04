@@ -70,22 +70,7 @@ program project
   do i = 1, N
     A(i,N+1) = 1_wp
     do j = 1, N
-      if (i == j) then
-        A(i,i) = ds(i)/(2_wp*pi) * (log(0.5_wp*ds(i)) - 1_wp)
-      else
-        dx  = (x(j+1)-x(j))/ds(j);
-        dy  = (y(j+1)-y(j))/ds(j);
-        t1  = x(j) - xmid(i);
-        t2  = y(j) - ymid(i);
-        t3  = x(j+1) - xmid(i);
-        t4  = y(j+1) - ymid(i);
-        t5  = t1 * dx + t2 * dy;
-        t6  = t3 * dx + t4 * dy;
-        t7  = t2 * dx - t1 * dy;
-        t1  = t6 * log(t6*t6+t7*t7) - t5 * log(t5*t5+t7*t7);
-        t2  = atan2(t7,t5)-atan2(t7,t6);
-        a(i,j) = (0.5_wp * t1-t6+t5+t7*t2)/(2_wp*pi);
-      end if
+      A(i, j) = make_A(x, y, ds, xmid, ymid, i, j)
     end do
   end do
   !$OMP end parallel do
@@ -97,9 +82,11 @@ program project
   !gam = solve_lu(A, rhs)
   gam = solve_qr(A, rhs)
 
+  !$OMP parallel do
   do i = 1, N
     cp(i) = 1_wp - gam(i)*gam(i)
   end do
+  !$OMP end parallel do
   !cp(1) = -cp(1)
   !cp(N) = -cp(N)
   do i = 1, N
@@ -126,6 +113,29 @@ program project
   print *, "#", cl, cd, cm
 
 contains
+  pure function make_A(x, y, ds, xmid, ymid, i, j) result(aij)
+    real(kind=wp), dimension(2*Nseg-1), intent(in) :: x, y
+    real(kind=wp), dimension(N), intent(in) :: ds, xmid, ymid
+    integer, intent(in) :: i, j
+    real(kind=wp) :: aij
+    real(kind=wp) :: dx, dy, t1, t2, t3, t4, t5, t6, t7
+    if (i == j) then
+      aij = ds(i)/(2_wp*pi) * (log(0.5_wp*ds(i)) - 1_wp)
+    else
+      dx  = (x(j+1)-x(j))/ds(j);
+      dy  = (y(j+1)-y(j))/ds(j);
+      t1  = x(j) - xmid(i);
+      t2  = y(j) - ymid(i);
+      t3  = x(j+1) - xmid(i);
+      t4  = y(j+1) - ymid(i);
+      t5  = t1 * dx + t2 * dy;
+      t6  = t3 * dx + t4 * dy;
+      t7  = t2 * dx - t1 * dy;
+      t1  = t6 * log(t6*t6+t7*t7) - t5 * log(t5*t5+t7*t7);
+      t2  = atan2(t7,t5)-atan2(t7,t6);
+      aij = (0.5_wp * t1-t6+t5+t7*t2)/(2_wp*pi);
+    end if
+  end function make_A
   pure function naca00xx(xx, x, c) result(y)
     real(kind=wp), intent(in) :: xx, x
     real(kind=wp), intent(in), optional :: c
