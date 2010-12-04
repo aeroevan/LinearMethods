@@ -6,8 +6,7 @@ program project
   ! NACA 0012 => 12% thickness (0.12)
   real(kind=wp), parameter :: xx = 0.12_wp
                                   ! Temporarly variables...
-  real(kind=wp) :: alpha, dx, dy, t1, t2, t3, t4, t5, t6, t7, cy, cx, cm, cl, &
-    cd, xarm
+  real(kind=wp) :: alpha, dx, dy, t1, t2, cy, cx, cm, cl, cd, xarm
   real(kind=wp), dimension(2*Nseg-1) :: x, y
   real(kind=wp), dimension(N+1,N+1) :: A
   real(kind=wp), dimension(N) :: ds, xmid, ymid, cp
@@ -66,7 +65,7 @@ program project
 
   ! Parallelize this...
   A = 0_wp
-  !$OMP parallel do private(i,j,dx,dy,t1,t2,t3,t4,t5,t6,t7)
+  !$OMP parallel do private(i,j)
   do i = 1, N
     A(i,N+1) = 1_wp
     do j = 1, N
@@ -101,6 +100,7 @@ program project
   do i = 1, N
     dx = x(i+1) - x(i)
     dy = y(i+1) - y(i)
+    ! moment arm = midpoint of current point to the quarter chord.
     xarm = xmid(i)-x(Nseg)-0.25_wp
     cy = cy - cp(i)*dx
     cx = cx + cp(i)*dy
