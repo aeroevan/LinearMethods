@@ -1,7 +1,7 @@
 FC=gfortran -fopenmp -O3 -mtune=native -march=native
 #FC=mpif90 -fopenmp -O3 -mtune=native -march=native
 
-PROGRAMS=prob10 prob18 test_lu test_qr
+PROGRAMS=project prob10 prob18 test_lu test_qr
 
 
 all: $(PROGRAMS)
@@ -36,3 +36,9 @@ prob10.o: prob10.f90 linearmethods.o
 
 prob10: prob10.o
 	$(FC) -o prob10 prob10.o linearmethods.o
+
+project.o: project.f90 linearmethods.o
+	$(FC) -c project.f90
+
+project:project.o linearmethods.o
+	$(FC) -o project project.o linearmethods.o
