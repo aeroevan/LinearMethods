@@ -253,6 +253,7 @@ contains
 
     end subroutine main_givens_qr
     ! }}}
+    !{{{ worker_givens_qr(m)
     subroutine worker_givens_qr(m)
         integer, intent(in) :: m
         integer :: i, j, ierr, source, tag, status(MPI_STATUS_SIZE)
@@ -302,6 +303,7 @@ contains
         end do
 
     end subroutine worker_givens_qr
+    ! }}}
     ! {{{ solve_qr(A, b) result(x)
     function solve_qr(A, b) result(x)
         ! Solve a linear system using QR decomposition
@@ -320,7 +322,7 @@ contains
             stop
         end if
 
-        call givens_qr(A, Q, R)
+        call old_givens_qr(A, Q, R)
 
         ! Ax = QRx = b => Rx = Q'b
         Q = transpose(Q)

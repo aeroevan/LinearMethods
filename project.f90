@@ -85,11 +85,11 @@ program project
 
     gam = 0_wp
     !gam = solve_lu(A, rhs)
-  end if
+  !end if
 
     gam = solve_qr(A, rhs)
 
-  if (id==0) then
+  !if (id==0) then
 
     !$OMP parallel do
     do i = 1, N

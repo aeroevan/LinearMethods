@@ -1,4 +1,4 @@
-FC=mpif90 -Wall -Wextra -fbounds-check -O3 -mtune=native -march=native
+FC=mpif90 -Wall -Wextra -fopenmp -fbounds-check -O3 -mtune=native -march=native
 #FC=gfortran -Wall -Wextra -fbounds-check -O3 -mtune=native -march=native
 #FC=mpif90 -fopenmp -O3 -mtune=native -march=native
 
