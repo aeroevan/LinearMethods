@@ -1,11 +1,11 @@
 program project
+  use mpi
   use linearmethods
   implicit none
   real(kind=wp), parameter :: pi = 3.14159265358979323846264338327950288_wp
-  integer, parameter :: Nseg = 501, N=2*Nseg-2
+  integer, parameter :: Nseg = 500, N=2*Nseg-2
   ! NACA 0012 => 12% thickness (0.12)
   real(kind=wp), parameter :: xx = 0.12_wp
-                                  ! Temporarly variables...
   real(kind=wp) :: alpha, dx, dy, t1, t2, cy, cx, cm, cl, cd, xarm
   real(kind=wp), dimension(2*Nseg-1) :: x, y
   real(kind=wp), dimension(N+1,N+1) :: A
@@ -13,104 +13,116 @@ program project
   real(kind=wp), dimension(N+1) :: rhs, gam
   character(len=100) :: buffer
   integer :: i, j
+  ! MPI crap
+  integer :: ierr, id
+
+  call MPI_INIT(ierr)
+  call MPI_COMM_RANK(MPI_COMM_WORLD, id, ierr)
   
-  call getarg(1,buffer)
-  if (buffer(1:2) == "-h") then
-    print *, "./project [alpha]"
-    stop
-  elseif (trim(buffer) == '') then
-    print *, "Need alpha..."
-    stop
-  end if
-  read(buffer,*) alpha
-  ! deg => rad
-  alpha = pi/180_wp*alpha
+  if (id == 0) then
+    call getarg(1,buffer)
+    if (buffer(1:2) == "-h") then
+      print *, "./project [alpha]"
+      stop
+    elseif (trim(buffer) == '') then
+      print *, "Need alpha..."
+      stop
+    end if
+    read(buffer,*) alpha
+    ! deg => rad
+    alpha = pi/180_wp*alpha
 
-  ! Upper surface
-  !$OMP parallel do
-  do i = Nseg, 2*Nseg-1
-    x(i) = real(i-Nseg)/Nseg
-    y(i) = naca00xx(xx, x(i))
-  end do
-  !$OMP end parallel do
-  ! Lower surface is symmetric... index so bottom then top
-  !$OMP parallel do
-  do i = 1, Nseg
-    x(Nseg+1-i) = x(Nseg-1+i)
-    y(Nseg+1-i) = -y(Nseg-1+i)
-  end do
-  !$OMP end parallel do
-
-  ! Compute panel sizes
-  !$OMP parallel do
-  do i = 1, N
-    t1 = x(i+1) - x(i)
-    t2 = y(i+1) - y(i)
-    ds(i) = sqrt(t1*t1 + t2*t2)
-  end do
-  !$OMP end parallel do
-
-  ! Compute RHS
-  rhs = 0_wp
-  xmid = 0_wp
-  ymid = 0_wp
-
-  !$OMP parallel do
-  do i = 1, N
-    xmid(i) = 0.5_wp * (x(i) + x(i+1))
-    ymid(i) = 0.5_wp * (y(i) + y(i+1))
-    rhs(i) = ymid(i) * cos(alpha) - xmid(i) * sin(alpha)
-  end do
-  !$OMP end parallel do
-
-  ! Parallelize this...
-  A = 0_wp
-  !$OMP parallel do private(i,j)
-  do i = 1, N
-    A(i,N+1) = 1_wp
-    do j = 1, N
-      A(i, j) = make_A(x, y, ds, xmid, ymid, i, j)
+    ! Upper surface
+    !$OMP parallel do
+    do i = Nseg, 2*Nseg-1
+      x(i) = real(i-Nseg)/Nseg
+      y(i) = naca00xx(xx, x(i))
     end do
-  end do
-  !$OMP end parallel do
-  ! Kutta condition
-  A(N+1,1) = 1_wp
-  A(N+1,n) = 1_wp
+    !$OMP end parallel do
+    ! Lower surface is symmetric... index so bottom then top
+    !$OMP parallel do
+    do i = 1, Nseg
+      x(Nseg+1-i) = x(Nseg-1+i)
+      y(Nseg+1-i) = -y(Nseg-1+i)
+    end do
+    !$OMP end parallel do
 
-  gam = 0_wp
-  !gam = solve_lu(A, rhs)
-  gam = solve_qr(A, rhs)
+    ! Compute panel sizes
+    !$OMP parallel do
+    do i = 1, N
+      t1 = x(i+1) - x(i)
+      t2 = y(i+1) - y(i)
+      ds(i) = sqrt(t1*t1 + t2*t2)
+    end do
+    !$OMP end parallel do
 
-  !$OMP parallel do
-  do i = 1, N
-    cp(i) = 1_wp - gam(i)*gam(i)
-  end do
-  !$OMP end parallel do
-  !cp(1) = -cp(1)
-  !cp(N) = -cp(N)
-  do i = 1, N
-    print *, xmid(i), cp(i), ymid(i)
-  end do
+    ! Compute RHS
+    rhs = 0_wp
+    xmid = 0_wp
+    ymid = 0_wp
 
+    !$OMP parallel do
+    do i = 1, N
+      xmid(i) = 0.5_wp * (x(i) + x(i+1))
+      ymid(i) = 0.5_wp * (y(i) + y(i+1))
+      rhs(i) = ymid(i) * cos(alpha) - xmid(i) * sin(alpha)
+    end do
+    !$OMP end parallel do
 
-  cy = 0_wp
-  cx = 0_wp
-  cm = 0_wp
-  !$OMP parallel do private(xarm)
-  do i = 1, N
-    dx = x(i+1) - x(i)
-    dy = y(i+1) - y(i)
-    ! moment arm = midpoint of current point to the quarter chord.
-    xarm = xmid(i)-x(Nseg)-0.25_wp
-    cy = cy - cp(i)*dx
-    cx = cx + cp(i)*dy
-    cm = cm - cp(i)*dx*xarm
-  end do
-  !$OMP end parallel do
-  cl = cy*cos(alpha) - cx*sin(alpha)
-  cd = cy*sin(alpha) + cx*cos(alpha)
+    ! Parallelize this...
+    A = 0_wp
+    !$OMP parallel do private(i,j)
+    do i = 1, N
+      A(i,N+1) = 1_wp
+      do j = 1, N
+        A(i, j) = make_A(x, y, ds, xmid, ymid, i, j)
+      end do
+    end do
+    !$OMP end parallel do
+    ! Kutta condition
+    A(N+1,1) = 1_wp
+    A(N+1,N) = 1_wp
 
-  print *, "#", cl, cd, cm
+    gam = 0_wp
+    !gam = solve_lu(A, rhs)
+  end if
+
+    gam = solve_qr(A, rhs)
+
+  if (id==0) then
+
+    !$OMP parallel do
+    do i = 1, N
+      cp(i) = 1_wp - gam(i)*gam(i)
+    end do
+    !$OMP end parallel do
+    !cp(1) = -cp(1)
+    !cp(N) = -cp(N)
+    do i = 1, N
+      print *, xmid(i), cp(i), ymid(i), gam(i)
+    end do
+
+    cy = 0_wp
+    cx = 0_wp
+    cm = 0_wp
+    !$OMP parallel do private(xarm)
+    do i = 1, N
+      dx = x(i+1) - x(i)
+      dy = y(i+1) - y(i)
+      ! moment arm = midpoint of current point to the quarter chord.
+      xarm = xmid(i)-x(Nseg)-0.25_wp
+      cy = cy - cp(i)*dx
+      cx = cx + cp(i)*dy
+      cm = cm - cp(i)*dx*xarm
+    end do
+    !$OMP end parallel do
+    cl = cy*cos(alpha) - cx*sin(alpha)
+    cd = cy*sin(alpha) + cx*cos(alpha)
+
+    print *, "#", cl, cd, cm
+  end if
+
+  call MPI_FINALIZE(ierr)
 
 contains
   pure function make_A(x, y, ds, xmid, ymid, i, j) result(aij)

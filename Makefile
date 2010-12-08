@@ -1,4 +1,5 @@
-FC=gfortran -Wall -Wextra -fbounds-check -fopenmp -O3 -mtune=native -march=native
+FC=mpif90 -Wall -Wextra -fbounds-check -O3 -mtune=native -march=native
+#FC=gfortran -Wall -Wextra -fbounds-check -O3 -mtune=native -march=native
 #FC=mpif90 -fopenmp -O3 -mtune=native -march=native
 
 PROGRAMS=project prob10 prob18 test_lu test_qr
