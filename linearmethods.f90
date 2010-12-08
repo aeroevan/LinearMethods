@@ -43,7 +43,7 @@ contains
         end do
     end subroutine givens_row
     ! }}}
-    ! {{{ givens_qr(A, Q, R)
+    ! {{{ old_givens_qr(A, Q, R)
     subroutine old_givens_qr(A, Q, R)
         real(kind=wp), intent(in) :: A(:,:)
         real(kind=wp), intent(out) :: Q(size(A,1), size(A,2)), R(size(A,1), size(A,2))
@@ -89,6 +89,7 @@ contains
         !call print_matrix(matmul(Q,R))
     end subroutine old_givens_qr
     ! }}}
+    !{{{ givens_qr(A, Q, R)
     subroutine givens_qr(A, Q, R)
         real(kind=wp), intent(in) :: A(:,:)
         real(kind=wp), intent(out) :: Q(size(A,1), size(A,2)), R(size(A,1), size(A,2))
@@ -107,6 +108,7 @@ contains
             call worker_givens_qr(m)
         end if
     end subroutine givens_qr
+    ! }}}
     !{{{ givens_schedule(n, T, is, js)
     subroutine givens_schedule(n, T, is, js)
         integer, intent(in) :: n, T
@@ -177,18 +179,23 @@ contains
                 number_to_send = size(is,1)
                 nsend = min(nproc, number_to_send)
                 do i = 1, nsend
-                    !print *, i, number_to_send, "Send"
-                    call MPI_SEND(is(i), 1, MPI_INTEGER, i, i, MPI_COMM_WORLD, ierr)
-                    call MPI_SEND(js(i), 1, MPI_INTEGER, i, i, MPI_COMM_WORLD, ierr)
+                    call MPI_SEND(is(i), 1, MPI_INTEGER, i, i, &
+                        MPI_COMM_WORLD, ierr)
+                    call MPI_SEND(js(i), 1, MPI_INTEGER, i, i, &
+                        MPI_COMM_WORLD, ierr)
                     if (wp == sp) then
-                        call MPI_SEND(R(is(i)-1:is(i),js(i):m), 2*(m-js(i)+1), MPI_REAL, i, i, MPI_COMM_WORLD, ierr)
+                        call MPI_SEND(R(is(i)-1:is(i),js(i):m), &
+                            2*(m-js(i)+1), MPI_REAL, i, i, MPI_COMM_WORLD, ierr)
                     else
-                        call MPI_SEND(R(is(i)-1:is(i),js(i):m), 2*(m-js(i)+1), MPI_DOUBLE_PRECISION, i, i, MPI_COMM_WORLD, ierr)
+                        call MPI_SEND(R(is(i)-1:is(i),js(i):m), &
+                            2*(m-js(i)+1), MPI_DOUBLE_PRECISION, i, i, MPI_COMM_WORLD, ierr)
                     end if
                     if (wp == sp) then
-                        call MPI_SEND(Q(is(i)-1:is(i),1:m), 2*m, MPI_REAL, i, i, MPI_COMM_WORLD, ierr)
+                        call MPI_SEND(Q(is(i)-1:is(i),1:m), &
+                            2*m, MPI_REAL, i, i, MPI_COMM_WORLD, ierr)
                     else
-                        call MPI_SEND(Q(is(i)-1:is(i),1:m), 2*m, MPI_DOUBLE_PRECISION, i, i, MPI_COMM_WORLD, ierr)
+                        call MPI_SEND(Q(is(i)-1:is(i),1:m), &
+                            2*m, MPI_DOUBLE_PRECISION, i, i, MPI_COMM_WORLD, ierr)
                     end if
                 end do
                 number_sent = nsend
@@ -242,6 +249,7 @@ contains
         do i = 1, nproc
             call MPI_SEND(0, 1, MPI_INTEGER, i, i, MPI_COMM_WORLD, ierr)
         end do
+        Q = transpose(Q)
 
     end subroutine main_givens_qr
     ! }}}
